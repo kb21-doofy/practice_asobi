@@ -15,6 +15,7 @@ class WhisperService:
     # 利用可能なモデル一覧
     AVAILABLE_MODELS = ["tiny", "base", "small", "medium", "large"]
     
+    
     def __init__(self, model_name: str = "base", device: Optional[str] = None):
         """
         初期化

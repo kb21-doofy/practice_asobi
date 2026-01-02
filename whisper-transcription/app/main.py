@@ -4,10 +4,8 @@ Whisper文字起こしWebアプリ（Streamlit使用）
 """
 
 import os
-import sys
 import time
 import tempfile
-import torch
 import streamlit as st
 from datetime import datetime
 from whisper_service import WhisperService
@@ -21,17 +19,17 @@ st.set_page_config(
 
 # キャッシュ設定（サービスインスタンスを再作成しないようにする）
 @st.cache_resource
-def get_whisper_service(model_name: str):
+def _get_whisper_service(model_name: str):
     """WhisperServiceインスタンスを取得する（キャッシュ使用）"""
     return WhisperService(model_name=model_name)
 
-def check_ffmpeg():
+def _check_ffmpeg():
     """FFmpegがインストールされているか確認"""
     if not WhisperService.check_ffmpeg():
         st.error("⚠️ FFmpegがインストールされていません。https://ffmpeg.org/download.html からダウンロードしてください。")
         st.stop()
 
-def get_available_models():
+def _get_available_models():
     """利用可能なWhisperモデルの一覧を返す"""
     return WhisperService.get_available_models()
 
@@ -43,7 +41,7 @@ def main():
     """)
     
     # FFmpegの確認
-    check_ffmpeg()
+    _check_ffmpeg()
     
     # サイドバー設定
     st.sidebar.title("設定")
@@ -51,7 +49,7 @@ def main():
     # モデル選択
     model_option = st.sidebar.selectbox(
         "モデルサイズを選択",
-        options=get_available_models(),
+        options=_get_available_models(),
         index=1,  # baseをデフォルトに
         help="大きいモデルほど精度が上がりますが、処理時間も増加します。"
     )
@@ -70,7 +68,7 @@ def main():
     )
     
     # デバイス情報表示
-    whisper_service = get_whisper_service(model_option)
+    whisper_service = _get_whisper_service(model_option)
     device_display = "GPU (CUDA)" if whisper_service.is_gpu_available() else "CPU"
     st.sidebar.info(f"使用デバイス: {device_display}")
     
@@ -110,7 +108,7 @@ def main():
                     load_start = time.time()
                     progress_text = st.empty()
                     progress_text.text("モデルをロード中...")
-                    whisper_service = get_whisper_service(model_option)
+                    whisper_service = _get_whisper_service(model_option)
                     whisper_service.load_model()  # モデルをロード（初回のみ）
                     load_end = time.time()
                     progress_text.text(f"モデルロード完了（{load_end - load_start:.2f}秒）")
