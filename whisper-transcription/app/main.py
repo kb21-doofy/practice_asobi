@@ -68,11 +68,10 @@ def main():
     )
     
     # デバイス情報表示
-    whisper_service = _get_whisper_service(model_option)
-    device_display = "GPU (CUDA)" if whisper_service.is_gpu_available() else "CPU"
+    device_display = "GPU (CUDA)" if WhisperService.is_gpu_available() else "CPU"
     st.sidebar.info(f"使用デバイス: {device_display}")
     
-    if not whisper_service.is_gpu_available():
+    if not WhisperService.is_gpu_available():
         st.sidebar.warning("GPUが検出されませんでした。処理が遅くなる可能性があります。")
     
     # サイドバーにGitHubリンク

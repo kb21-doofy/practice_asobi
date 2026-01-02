@@ -81,7 +81,8 @@ class WhisperService:
         """
         return self.device
     
-    def is_gpu_available(self) -> bool:
+    @staticmethod
+    def is_gpu_available() -> bool:
         """
         GPUが利用可能かどうかを確認
         
