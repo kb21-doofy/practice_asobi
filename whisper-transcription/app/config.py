@@ -2,7 +2,6 @@
 import os
 from typing import Optional
 
-# TODO: 定数でリストを保持する様に集約させたい。定数の一元管理を行える様にしたい。
 
 class Settings:
     """設定クラス"""
@@ -34,3 +33,23 @@ class Settings:
             環境変数の値、またはデフォルト値
         """
         return os.getenv(key, default)
+
+
+class Constants:
+    """定数クラス"""
+    
+    # Whisperモデル関連
+    AVAILABLE_MODELS = ["tiny", "base", "small", "medium", "large"]
+    
+    WHISPER_DEFAULT_MODEL = "base"
+            
+    # OpenAI LLMモデル関連
+    OPENAI_AVAILABLE_MODELS = [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4-turbo",
+        "gpt-4",
+        "gpt-3.5-turbo",
+    ]
+    
+    OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
