@@ -28,7 +28,6 @@ class OpenAIClient(LLMClient):
             raise ValueError("OpenAI APIキーが設定されていません。環境変数OPENAI_API_KEYを設定するか、Settingsクラスで設定してください。")
         
         self.client = OpenAI(api_key=api_key)
-        self.default_model = default_model or Constants.OPENAI_DEFAULT_MODEL
     
     def chat_completion(
         self,
@@ -117,5 +116,5 @@ class OpenAIClient(LLMClient):
         Returns:
             デフォルトモデル名
         """
-        return self.default_model
+        return Constants.OPENAI_DEFAULT_MODEL
 

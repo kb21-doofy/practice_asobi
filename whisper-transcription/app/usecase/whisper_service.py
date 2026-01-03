@@ -7,14 +7,11 @@ import os
 import whisper
 import torch
 from typing import Optional, Dict, Any, List
+from config import Constants
 
 
 class WhisperService:
     """Whisper文字起こしサービスクラス"""
-    
-    # 利用可能なモデル一覧
-    AVAILABLE_MODELS = ["tiny", "base", "small", "medium", "large"]
-    
     
     def __init__(self, model_name: str = "base", device: Optional[str] = None):
         """
@@ -24,8 +21,8 @@ class WhisperService:
             model_name: 使用するWhisperモデル名（デフォルト: "base"）
             device: 使用するデバイス（"cuda" or "cpu"）。Noneの場合は自動検出
         """
-        if model_name not in self.AVAILABLE_MODELS:
-            raise ValueError(f"無効なモデル名: {model_name}。利用可能: {self.AVAILABLE_MODELS}")
+        if model_name not in Constants.AVAILABLE_MODELS:
+            raise ValueError(f"無効なモデル名: {model_name}。利用可能: {Constants.AVAILABLE_MODELS}")
         
         self.model_name = model_name
         self.device = device if device else ("cuda" if torch.cuda.is_available() else "cpu")
@@ -109,5 +106,5 @@ class WhisperService:
         Returns:
             モデル名のリスト
         """
-        return WhisperService.AVAILABLE_MODELS.copy()
+        return Constants.AVAILABLE_MODELS.copy()
 
