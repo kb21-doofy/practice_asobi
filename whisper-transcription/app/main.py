@@ -8,7 +8,7 @@ import time
 import tempfile
 import streamlit as st
 from datetime import datetime
-from usecase.whisper_service import WhisperService
+from usecase.service.whisper_service import WhisperService
 
 # ページ設定
 st.set_page_config(
