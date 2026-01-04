@@ -9,6 +9,9 @@ import tempfile
 import streamlit as st
 from datetime import datetime
 from usecase.service.whisper_service import WhisperService
+# TODO: ハイライト抽出機能を追加する場合は、以下のコメントを解除する。
+# from usecase.service.extract_highlights_service import ExtractHighlightsService
+# from adapter.openai_client import OpenAIClient
 
 # ページ設定
 st.set_page_config(
