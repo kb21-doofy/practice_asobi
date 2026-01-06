@@ -8,9 +8,92 @@ import os
 import sys
 import argparse
 import time
+import tempfile
 from datetime import datetime
 from usecase.service.whisper_service import WhisperService
 from config import Constants
+from moviepy import VideoFileClip, TextClip, CompositeVideoClip
+from moviepy.video.tools.subtitles import SubtitlesClip
+
+
+def time_to_seconds(time_str: str) -> float:
+    """
+    時間文字列（HH:MM:SS.ms）を秒数に変換
+    
+    Args:
+        time_str: 時間文字列（例: "00:02:19.000"）
+    
+    Returns:
+        秒数（float）
+    """
+    parts = time_str.split(":")
+    hours = int(parts[0])
+    minutes = int(parts[1])
+    seconds_parts = parts[2].split(".")
+    seconds = int(seconds_parts[0])
+    milliseconds = int(seconds_parts[1]) if len(seconds_parts) > 1 else 0
+    
+    total_seconds = hours * 3600 + minutes * 60 + seconds + milliseconds / 1000.0
+    return total_seconds
+
+
+def add_subtitles_to_video(video_path: str, timestamp_list: list, output_path: str) -> None:
+    """
+    動画に字幕を追加する
+    
+    Args:
+        video_path: 入力動画ファイルのパス
+        timestamp_list: タイムスタンプ付きテキストのリスト
+        output_path: 出力動画ファイルのパス
+    """
+    print("動画に字幕を追加中...", file=sys.stderr)
+    
+    video = VideoFileClip(video_path)
+    
+    # 字幕リストを作成（((start, end), text)の形式）
+    subtitles = []
+    for item in timestamp_list:
+        start_seconds = time_to_seconds(item["start"])
+        end_seconds = time_to_seconds(item["end"])
+        text = item["text"]
+        subtitles.append(((start_seconds, end_seconds), text))
+    
+    # 字幕クリップを作成
+    def make_textclip(txt):
+        """字幕用のTextClipを作成する関数"""
+        return TextClip(
+            text=txt,
+            font='Arial',
+            font_size=24,
+            color='white',
+            stroke_color='black',
+            stroke_width=2
+        )
+    
+    subtitle_clips = SubtitlesClip(
+        subtitles,
+        make_textclip=make_textclip
+    )
+    
+    # 動画と字幕を合成
+    final_video = CompositeVideoClip([
+        video,
+        subtitle_clips.set_position(('center', 'bottom'))
+    ])
+    
+    # 出力ファイルに書き込み
+    final_video.write_videofile(
+        output_path,
+        codec='libx264',
+        audio_codec='aac',
+        logger=None
+    )
+    
+    # リソースを解放
+    video.close()
+    final_video.close()
+    
+    print(f"字幕付き動画を '{output_path}' に保存しました。", file=sys.stderr)
 
 
 def main():
@@ -18,7 +101,7 @@ def main():
     parser = argparse.ArgumentParser(description="Whisper文字起こしローカルテストスクリプト")
     parser.add_argument(
         "file",
-        help="文字起こしを行う音声ファイルへのパス"
+        help="文字起こしを行う音声ファイルまたは動画ファイル（mp3, wav, m4a, ogg, flac, mp4等）へのパス"
     )
     parser.add_argument(
         "--model",
@@ -34,6 +117,10 @@ def main():
         "--output",
         help="出力テキストファイルのパス。指定しない場合は標準出力"
     )
+    parser.add_argument(
+        "--video-output",
+        help="字幕付き動画の出力パス（動画ファイルの場合のみ有効）"
+    )
     
     args = parser.parse_args()
     
@@ -41,6 +128,30 @@ def main():
     if not os.path.exists(args.file):
         print(f"エラー: ファイル '{args.file}' が見つかりません。", file=sys.stderr)
         return 1
+    
+    # 動画ファイルの場合は音声を抽出
+    audio_file_path = args.file
+    temp_audio_file = None
+    is_video_file = False
+    original_video = None
+    
+    file_ext = os.path.splitext(args.file)[1].lower()
+    if file_ext == ".mp4":
+        is_video_file = True
+        print("動画ファイルを検出しました。音声を抽出中...", file=sys.stderr)
+        try:
+            original_video = VideoFileClip(args.file)
+            # 一時ファイルとして音声を保存
+            temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+            temp_audio_file.close()
+            original_video.audio.write_audiofile(temp_audio_file.name, logger=None)
+            audio_file_path = temp_audio_file.name
+            print("音声抽出完了", file=sys.stderr)
+        except Exception as e:
+            print(f"エラー: 動画からの音声抽出に失敗しました: {str(e)}", file=sys.stderr)
+            if original_video:
+                original_video.close()
+            return 1
     
     # サービスの初期化
     print(f"モデル '{args.model}' をロード中...", file=sys.stderr)
@@ -58,7 +169,7 @@ def main():
     
     # 文字起こし実行（main.pyと同じ処理）
     result = whisper_service.transcribe(
-        args.file,
+        audio_file_path,
         language=args.language if args.language else None
     )
     
@@ -120,6 +231,32 @@ def main():
         print("タイムスタンプ付きテキスト:", file=sys.stderr)
         print("="*80, file=sys.stderr)
         print(timestamp_text)
+    
+    # 動画に字幕を追加（動画ファイルの場合）
+    if is_video_file:
+        try:
+            if original_video:
+                original_video.close()
+            
+            # 出力ディレクトリの作成
+            output_dir = "/Users/a/youtube-captioner/whisper-transcription/output_mp4"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # 出力ファイル名を生成
+            if args.video_output:
+                video_output_path = os.path.join(output_dir, args.video_output)
+            else:
+                base_name = os.path.splitext(os.path.basename(args.file))[0]
+                video_output_path = os.path.join(output_dir, f"{base_name}_with_subtitles.mp4")
+            
+            add_subtitles_to_video(args.file, timestamp_list, video_output_path)
+        except Exception as e:
+            print(f"エラー: 字幕の追加に失敗しました: {str(e)}", file=sys.stderr)
+            return 1
+    
+    # 一時ファイルの削除
+    if temp_audio_file and os.path.exists(temp_audio_file.name):
+        os.unlink(temp_audio_file.name)
     
     return 0
 
