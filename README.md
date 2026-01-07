@@ -23,3 +23,10 @@ $ yt-dlp "https://www.youtube.com/watch?v=8bX5ASmVh4Q" -F
 ```
 $ yt-dlp -x --audio-format mp3 "https://www.youtube.com/watch?v=nf357cUl8-A"
 ```
+
+# TODO
+local_scriptの実行コマンド
+現状はエラーになっているのでそこのデバッグから
+```
+$ uv run python app/localtest_script.py mp4_data/data_001.mp4 --model base
+```
