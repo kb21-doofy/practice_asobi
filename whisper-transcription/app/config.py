@@ -2,7 +2,9 @@
 import os
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings:
     """設定クラス"""
@@ -15,10 +17,22 @@ class Settings:
         """
         環境変数から設定を読み込む
         
-        将来的に.envファイルの読み込みやバリデーションを追加可能
+        .envファイルからも読み込む（python-dotenvがインストールされている場合）
         """
+        # OpenAI API関連の設定
         self.openai_api_key = self._get_env("OPENAI_API_KEY")
-        # 他の設定もここに追加可能
+        
+        # Azure OpenAI関連の設定（openai_handler.pyで使用）
+        self.openai_model_name = self._get_env("OPENAI_MODEL_NAME")
+        self.openai_azure_endpoint = self._get_env("OPENAI_AZURE_ENDPOINT")
+        self.openai_api_version = self._get_env("OPENAI_API_VERSION")
+        
+        # プロパティとしてアクセスできるようにする（互換性のため）
+        # 大文字のプロパティ名でアクセス可能にする（openai_handler.pyで使用）
+        self.OPENAI_API_KEY = self.openai_api_key
+        self.OPENAI_MODEL_NAME = self.openai_model_name
+        self.OPENAI_AZURE_ENDPOINT = self.openai_azure_endpoint
+        self.OPENAI_API_VERSION = self.openai_api_version
         
     
     @staticmethod
