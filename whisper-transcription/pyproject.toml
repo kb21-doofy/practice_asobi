@@ -16,4 +16,5 @@ dependencies = [
     "soundfile>=0.12.1",
     "openai>=2.14.0",
     "moviepy>=2.2.1",
+    "python-dotenv>=1.0.0",
 ]
