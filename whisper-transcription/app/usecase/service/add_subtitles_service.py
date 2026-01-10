@@ -9,7 +9,7 @@ from moviepy import VideoFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 # 実行時にはappディレクトリがsys.pathに含まれていることを前提とする
 from utli.time_utils import time_to_seconds
-from config import Constants
+from config import SubtitleConstants
 
 
 class AddSubtitlesService:
@@ -24,16 +24,16 @@ class AddSubtitlesService:
         初期化
         
         Args:
-            font_size: フォントサイズ（Noneの場合はConstants.SUBTITLE_DEFAULT_FONT_SIZEを使用）
-            font_color: フォント色（Noneの場合はConstants.SUBTITLE_DEFAULT_FONT_COLORを使用）
-            stroke_color: ストローク色（Noneの場合はConstants.SUBTITLE_DEFAULT_STROKE_COLORを使用）
-            stroke_width: ストロークの太さ（Noneの場合はConstants.SUBTITLE_DEFAULT_STROKE_WIDTHを使用）
+            font_size: フォントサイズ（Noneの場合はSubtitleConstants.SUBTITLE_DEFAULT_FONT_SIZEを使用）
+            font_color: フォント色（Noneの場合はSubtitleConstants.SUBTITLE_DEFAULT_FONT_COLORを使用）
+            stroke_color: ストローク色（Noneの場合はSubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLORを使用）
+            stroke_width: ストロークの太さ（Noneの場合はSubtitleConstants.SUBTITLE_DEFAULT_STROKE_WIDTHを使用）
         """
-        # Noneの場合はConstantsのデフォルト値を使用
-        self.font_size = font_size if font_size is not None else Constants.SUBTITLE_DEFAULT_FONT_SIZE
-        self.font_color = font_color if font_color is not None else Constants.SUBTITLE_DEFAULT_FONT_COLOR
-        self.stroke_color = stroke_color if stroke_color is not None else Constants.SUBTITLE_DEFAULT_STROKE_COLOR
-        self.stroke_width = stroke_width if stroke_width is not None else Constants.SUBTITLE_DEFAULT_STROKE_WIDTH
+        # Noneの場合はSubtitleConstantsのデフォルト値を使用
+        self.font_size = font_size if font_size is not None else SubtitleConstants.SUBTITLE_DEFAULT_FONT_SIZE
+        self.font_color = font_color if font_color is not None else SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR
+        self.stroke_color = stroke_color if stroke_color is not None else SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR
+        self.stroke_width = stroke_width if stroke_width is not None else SubtitleConstants.SUBTITLE_DEFAULT_STROKE_WIDTH
     
     def _get_japanese_font_path(self) -> str:
         """

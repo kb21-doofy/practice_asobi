@@ -1,5 +1,6 @@
 # 設定ファイル
 import os
+from pathlib import Path
 from typing import Optional
 
 
@@ -53,9 +54,17 @@ class Constants:
     ]
     
     OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
+
+class SubtitleConstants:
     
     # 字幕関連の設定
     SUBTITLE_DEFAULT_FONT_SIZE = 24
     SUBTITLE_DEFAULT_FONT_COLOR = "white"
     SUBTITLE_DEFAULT_STROKE_COLOR = "black"
     SUBTITLE_DEFAULT_STROKE_WIDTH = 2
+    
+    # 出力ディレクトリ関連の設定
+    # プロジェクトルート（whisper-transcription）を取得
+    # config.pyは app/config.py にあるため、親の親ディレクトリがプロジェクトルート
+    PROJECT_ROOT = Path(__file__).parent.parent.absolute()
+    OUTPUT_MP4_DIR = PROJECT_ROOT / "output_mp4"
