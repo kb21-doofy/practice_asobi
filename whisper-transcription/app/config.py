@@ -53,3 +53,9 @@ class Constants:
     ]
     
     OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
+    
+    # 字幕関連の設定
+    SUBTITLE_DEFAULT_FONT_SIZE = 24
+    SUBTITLE_DEFAULT_FONT_COLOR = "white"
+    SUBTITLE_DEFAULT_STROKE_COLOR = "black"
+    SUBTITLE_DEFAULT_STROKE_WIDTH = 2
