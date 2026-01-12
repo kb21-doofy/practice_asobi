@@ -2,7 +2,20 @@
 """
 ローカルテスト用スクリプト
 main.pyのwhisper_service処理を再現する
+
+
+入力： mp4ファイル
+出力： 字幕付きのmp4ファイル
+
+処理の流れ：
+1. mp4ファイルを読み込む
+2. whisper_serviceを使用して文字起こしを行う
+3. 文字起こし結果を使用してハイライトを抽出する
+4. ハイライトを使用して字幕を追加する
+5. 字幕付きのmp4ファイルを出力する
 """
+
+    
 
 import os
 import sys
@@ -14,9 +27,6 @@ from usecase.service.whisper_service import WhisperService
 from usecase.service.add_subtitles_service import AddSubtitlesService
 from config import Constants, SubtitleConstants
 from moviepy import VideoFileClip
-# TODO: ハイライト抽出機能を追加する場合は、以下のコメントを解除する。
-# from usecase.service.extract_highlights_service import ExtractHighlightsService
-# from adapter.openai_client import OpenAIClient
 
 
 def main():
@@ -121,12 +131,15 @@ def main():
             "end": end_formatted,
             "text": text
         })
-    
-    #TODO timestamp_listをプロンプトに投げて、highlightを抽出する
-    print("99999", timestamp_list)
-    
-    
-    
+        
+    from adapter.llm_factory import LLMFactory
+    from domain.entities.llm_provider import LLMProvider
+    from usecase.service.extract_highlights_service import ExtractHighlightsService
+
+    llm_factory = LLMFactory(LLMProvider.OPENAI)
+    extract_highlights_service = ExtractHighlightsService(llm_factory)
+    highlights = extract_highlights_service.extract_highlights(timestamp_list)
+ 
     # リストを文字列に結合（表示用）
     timestamp_text = "\n".join([
         f"[{item['start']} --> {item['end']}] {item['text']}"
