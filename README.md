@@ -1,7 +1,9 @@
 # UI(streamlit)起動
 ## 
+whisper-transcriptionディレクトリから実行：
 ```
-uv run streamlit run app.py
+cd whisper-transcription
+uv run python -m streamlit run app/main.py
 ```
 
 
