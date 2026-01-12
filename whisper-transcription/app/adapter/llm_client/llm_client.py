@@ -1,5 +1,5 @@
-from be_llm.application.i_llm_handler import ILLMHandler
-import logging
+from adapter.llm_client.i_llm_client import ILLMHandler
+from utli.logger import get_logger
 import time
 
 
@@ -7,7 +7,7 @@ class LLMClient(ILLMHandler):
     def __init__(self, llm_handler: ILLMHandler):        
         
         self._llm_handler = llm_handler
-        self._logger = logging.getLogger(__name__)
+        self._logger = get_logger(__name__)
         
 
     def invoke(

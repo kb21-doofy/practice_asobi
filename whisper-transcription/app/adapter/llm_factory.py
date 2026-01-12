@@ -14,10 +14,10 @@ class LLMFactory:
         """
         self._provider = provider
 
-    def create_llm(self):
-        if self._provider == LLMProvider.OPENAI:
+    def create_llm(self, provider: LLMProvider) -> LLMClient:
+        if provider == LLMProvider.OPENAI:
             config = OpenAIHandlerConfig()
             handler = OpenAIHandler(config)
             return LLMClient(handler)
         else:
-            raise ValueError(f"Unsupported provider: {self._provider}")
+            raise ValueError(f"Unsupported provider: {provider}")

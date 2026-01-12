@@ -1,4 +1,4 @@
-from be_llm.application.i_llm_handler import ILLMHandler
+from adapter.llm_client.i_llm_client import ILLMHandler
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 import json
@@ -24,13 +24,27 @@ class OpenAIHandler(ILLMHandler):
         json_schema: dict | None,
     ) -> str:
         
+        # response_formatを適切な形式に変換
+        response_format = None
+        if json_schema is not None:
+            # OpenAI APIのresponse_format形式に変換
+            # {"type": "json_schema", "json_schema": {"name": "...", "schema": {...}, "strict": True}}
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response_schema",
+                    "schema": json_schema,
+                    "strict": True
+                }
+            }
+        
         # 通常のOpenAIを使用（azure_endpointとapi_versionは不要）
         llm = ChatOpenAI(
             model=self._config.model_name,
             api_key=self._config.api_key,
             temperature=temperature,
             model_kwargs={
-                **({"response_format": json_schema} if json_schema is not None else {})
+                **({"response_format": response_format} if response_format is not None else {})
             },
         )
 
