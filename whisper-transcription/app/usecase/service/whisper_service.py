@@ -9,7 +9,7 @@ import torch
 from typing import Optional, Dict, Any, List
 from config import Constants
 
-
+#FIXME: クラス名とファイル名を処理の名前に変更したい。（ex. TranscribeService）
 class WhisperService:
     """Whisper文字起こしサービスクラス"""
     
