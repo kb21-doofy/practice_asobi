@@ -5,8 +5,13 @@
 """
 
 from typing import List, Dict, Any, Optional
-from domain.interface.llm_client import LLMClient
+from pathlib import Path
+import json
+from adapter.llm_factory import LLMFactory
+from domain.entities.llm_provider import LLMProvider
+from utli.logger import get_logger
 
+logger = get_logger(__name__)
 
 class ExtractHighlightsService:
     """ハイライト抽出サービスクラス
@@ -15,102 +20,138 @@ class ExtractHighlightsService:
     LLMクライアントのインターフェースに依存することで、プロバイダーに依存しない設計になっています。
     """
     
-    def __init__(self, llm_client: LLMClient):
+    def __init__(self, llm_factory: LLMFactory):
         """
         初期化
         
         Args:
             llm_client: LLMクライアント（インターフェースに依存）
         """
-        self.llm_client = llm_client
+        self.llm_factory = llm_factory
     
     def extract_highlights(
         self,
-        transcription_text: str,
-        max_highlights: int = 5,
-        language: str = "ja"
-    ) -> Dict[str, Any]:
-        """
-        文字起こしテキストからハイライトを抽出する
+        subtitle_dict: Dict[str, str]) -> Dict[str, Any]:
         
-        Args:
-            transcription_text: 文字起こしテキスト
-            max_highlights: 抽出するハイライトの最大数（デフォルト: 5）
-            language: 言語（デフォルト: "ja"）
+        logger.debug("ハイライト抽出処理を開始")
         
-        Returns:
-            ハイライト抽出結果の辞書
-        """
-        if not transcription_text or not transcription_text.strip():
-            return {
-                "highlights": [],
-                "summary": "",
-                "error": "テキストが空です"
-            }
+        # LLMクライアントを作成
+        logger.debug("LLMクライアントを作成中")
+        llm_client = self.llm_factory.create_llm(LLMProvider.OPENAI)
+        logger.debug("LLMクライアント作成完了")
         
-        # プロンプトの作成
-        prompt = self._create_prompt(transcription_text, max_highlights, language)
+        # プロンプトを読み込む
+        logger.debug("プロンプトを読み込み中")
+        system_prompt = self._load_system_prompt()
+        user_prompt = self._load_and_format_user_prompt(subtitle_dict)
+        json_schema = self._load_json_schema()
+        logger.debug("プロンプト読み込み完了")
         
-        # LLMクライアントを使用してハイライトを抽出
-        messages = [
-            {"role": "system", "content": "あなたは文字起こしテキストから重要なポイントを抽出する専門家です。"},
-            {"role": "user", "content": prompt}
-        ]
-        
+        # LLMを呼び出してハイライトを抽出
         try:
-            response = self.llm_client.chat_completion(
-                messages=messages,
+            logger.info("LLMを呼び出してハイライトを抽出中")
+            response_content = llm_client.invoke(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 temperature=0.3,  # 一貫性のある結果のため低めの温度
-                max_tokens=1000
+                json_schema=json_schema,
             )
+            logger.debug(f"LLMレスポンス受信完了（長さ: {len(response_content)}文字）")
             
             # レスポンスからハイライトを抽出
-            content = response.get("content", "")
-            
-            return {
-                "highlights": self._parse_highlights(content),
-                "summary": self._extract_summary(content),
-                "raw_response": content,
-                "usage": response.get("usage", {})
+            logger.debug("レスポンスからハイライトを抽出中")
+            result = {
+                "highlights": self._parse_highlights(response_content),
+                "summary": self._extract_summary(response_content),
+                "raw_response": response_content,
             }
+            logger.info(f"ハイライト抽出完了（抽出数: {len(result['highlights'])}）")
+            return result
         except Exception as e:
+            logger.error(f"ハイライト抽出中にエラーが発生: {str(e)}", exc_info=True)
             return {
                 "highlights": [],
                 "summary": "",
                 "error": f"ハイライト抽出中にエラーが発生しました: {str(e)}"
             }
     
-    def _create_prompt(self, text: str, max_highlights: int, language: str) -> str:
+    def _load_system_prompt(self) -> str:
         """
-        ハイライト抽出用のプロンプトを作成
-        
-        Args:
-            text: 文字起こしテキスト
-            max_highlights: 抽出するハイライトの最大数
-            language: 言語
+        システムプロンプトファイルを読み込む
         
         Returns:
             プロンプトテキスト
         """
-        lang_instruction = "日本語で" if language == "ja" else "in English"
+        prompts_base_dir = Path(__file__).parent.parent / "prompts"
+        prompt_file = prompts_base_dir / "extract_highlights" / "system_prompt.md"
+        logger.debug(f"システムプロンプトファイルを読み込み: {prompt_file}")
         
-        prompt = f"""以下の文字起こしテキストから、重要なポイントを{max_highlights}個抽出してください。
-{lang_instruction}で回答してください。
-
-【文字起こしテキスト】
-{text}
-
-【出力形式】
-- 各ハイライトを箇条書きで記載
-- 簡潔で明確な表現を使用
-- 重要な情報を優先的に抽出
-
-【出力例】
-1. [ハイライト1]
-2. [ハイライト2]
-...
-"""
-        return prompt
+        if not prompt_file.exists():
+            logger.error(f"プロンプトファイルが見つかりません: {prompt_file}")
+            raise FileNotFoundError(f"プロンプトファイルが見つかりません: {prompt_file}")
+        
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            logger.debug(f"システムプロンプト読み込み完了（長さ: {len(content)}文字）")
+            return content
+    
+    def _load_user_prompt_template(self) -> str:
+        """
+        ユーザープロンプトテンプレートファイルを読み込む
+        
+        Returns:
+            プロンプトテンプレートテキスト
+        """
+        prompts_base_dir = Path(__file__).parent.parent / "prompts"
+        prompt_file = prompts_base_dir / "extract_highlights" / "user_prompt.md"
+        logger.debug(f"ユーザープロンプトテンプレートファイルを読み込み: {prompt_file}")
+        
+        if not prompt_file.exists():
+            logger.error(f"プロンプトファイルが見つかりません: {prompt_file}")
+            raise FileNotFoundError(f"プロンプトファイルが見つかりません: {prompt_file}")
+        
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            logger.debug(f"ユーザープロンプトテンプレート読み込み完了（長さ: {len(content)}文字）")
+            return content
+    
+    def _load_and_format_user_prompt(self, subtitle_dict: Dict[str, str]) -> str:
+        """
+        ユーザープロンプトテンプレートを読み込んでフォーマットする
+        
+        Args:
+            subtitle_dict: 字幕データの辞書
+        
+        Returns:
+            フォーマット済みプロンプトテキスト
+        """
+        template = self._load_user_prompt_template()
+        return template.format(subtitle_dict=str(subtitle_dict))
+    
+    def _load_json_schema(self) -> Optional[dict]:
+        """
+        JSONスキーマファイルを読み込む
+        
+        Returns:
+            JSONスキーマ辞書（ファイルが存在しない場合はNone）
+        """
+        prompts_base_dir = Path(__file__).parent.parent / "prompts"
+        schema_file = prompts_base_dir / "extract_highlights" / "json_schema.json"
+        logger.debug(f"JSONスキーマファイルを読み込み: {schema_file}")
+        
+        if not schema_file.exists():
+            logger.debug("JSONスキーマファイルが存在しないため、Noneを返します")
+            return None
+        
+        with open(schema_file, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            # コメントがある場合は削除（簡易的な処理）
+            if content.startswith("//"):
+                logger.debug("JSONスキーマファイルがコメントのみのため、Noneを返します")
+                return None
+            schema = json.loads(content)
+            logger.debug("JSONスキーマ読み込み完了")
+            return schema
     
     def _parse_highlights(self, content: str) -> List[str]:
         """
@@ -122,29 +163,8 @@ class ExtractHighlightsService:
         Returns:
             ハイライトのリスト
         """
-        highlights = []
-        lines = content.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # 番号付きリストや箇条書きを抽出
-            # "1. ", "- ", "・" などの形式に対応
-            if line.startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
-                highlight = line.split('.', 1)[1].strip() if '.' in line else line
-                if highlight:
-                    highlights.append(highlight)
-            elif line.startswith(('- ', '・', '* ')):
-                highlight = line[2:].strip() if len(line) > 2 else line[1:].strip()
-                if highlight:
-                    highlights.append(highlight)
-            elif line and not line.startswith('【') and not line.startswith('['):
-                # その他の行もハイライトとして追加（簡易的な処理）
-                highlights.append(line)
-        
-        return highlights[:10]  # 最大10個まで
+        # 簡易実装：レスポンスをそのまま返す（後で実装）
+        return [content]
     
     def _extract_summary(self, content: str) -> str:
         """
