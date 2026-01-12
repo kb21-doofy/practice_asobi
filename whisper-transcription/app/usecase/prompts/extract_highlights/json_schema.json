@@ -8,19 +8,26 @@
         "items": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "start", "end", "text", "is_important_flag"],
           "properties": {
             "id": { "type": "integer", "minimum": 0 },
             "start": { "type": "number", "minimum": 0 },
             "end": { "type": "number", "minimum": 0 },
             "text": { "type": "string", "minLength": 1 },
-  
             "is_important_flag": { "type": "boolean" },
             "importance_score": { "type": "number", "minimum": 0, "maximum": 1 },
             "importance_reason": { "type": "string" },
-  
             "normalized_text": { "type": "string" }
-          }
+          },
+          "required": [
+            "id",
+            "start",
+            "end",
+            "text",
+            "is_important_flag",
+            "importance_score",
+            "importance_reason",
+            "normalized_text"
+          ]
         }
       }
     }
