@@ -10,9 +10,6 @@ import streamlit as st
 from usecase.service.extract_key_segments_service import ExtractKeySegmentsService
 from adapter.llm_factory import LLMFactory
 from domain.entities.llm_provider import LLMProvider
-# TODO: ハイライト抽出機能を追加する場合は、以下のコメントを解除する。
-# from usecase.service.extract_highlights_service import ExtractHighlightsService
-# from adapter.openai_client import OpenAIClient
 
 # ページ設定
 st.set_page_config(
@@ -53,6 +50,14 @@ def main():
         }.get(x, x),
         help="音声の言語を指定します。自動検出も可能です。"
     )
+
+    # プロバイダー選択
+    provider_option = st.sidebar.selectbox(
+        "プロバイダーを選択",
+        options=["openai", "gemini"],
+        index=0,
+        help="重要箇所抽出に使用するLLMプロバイダーを選択します。"
+    )
     
     # サイドバーにGitHubリンク
     st.sidebar.markdown("---")
@@ -83,6 +88,7 @@ def main():
         if transcribe_button:
             # 処理開始
             with st.spinner("文字起こし処理中..."):
+                temp_filename = None
                 # 一時ファイルとして保存
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
                     tmp_file.write(uploaded_file.getvalue())
@@ -93,9 +99,15 @@ def main():
                     load_start = time.time()
                     progress_text = st.empty()
                     progress_text.text("重要箇所を抽出中...")
-                    llm_factory = LLMFactory(LLMProvider.OPENAI)
+                    provider_map = {
+                        "openai": LLMProvider.OPENAI,
+                        "gemini": LLMProvider.GEMINI,
+                    }
+                    llm_factory = LLMFactory(provider_map[provider_option])
                     extract_service = ExtractKeySegmentsService(llm_factory)
                     key_segments = extract_service.extract_key_segments(temp_filename)
+                    print("999", key_segments)
+                    st.success("重要箇所の抽出が完了しました。")
                     load_end = time.time()
                     progress_text.empty()
                     
@@ -107,13 +119,11 @@ def main():
                     st.success(f"処理完了（合計: {total_time:.2f}秒）")
 
                     if key_segments:
-                        st.table([
-                            {
-                                "time_stamp": segment["time_stamp"],
-                                "text": segment["text"],
-                            }
-                            for segment in key_segments
-                        ])
+                        st.text_area(
+                            "LLMレスポンス",
+                            value=key_segments[0].get("raw_response", ""),
+                            height=240,
+                        )
                     else:
                         st.info("重要箇所が抽出されませんでした。")
                 
@@ -122,7 +132,7 @@ def main():
                 
                 finally:
                     # 一時ファイルの削除
-                    if os.path.exists(temp_filename):
+                    if temp_filename and os.path.exists(temp_filename):
                         os.unlink(temp_filename)
     
     else:

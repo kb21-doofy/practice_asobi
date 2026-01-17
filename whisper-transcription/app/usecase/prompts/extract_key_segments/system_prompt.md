@@ -1,2 +1,5 @@
-You are extracting key segments from an MP4 transcription.
-Return only JSON that matches the provided schema.
+あなたはMP4の文字起こしから主要なシーンを抽出します。
+重要なポイントを含むセグメントのみを選びます。
+出力は必ずJSONスキーマに従ってください。
+各セグメントに text, start_time, end_time を含めてください。
+text は文ごとに1要素として出力してください。

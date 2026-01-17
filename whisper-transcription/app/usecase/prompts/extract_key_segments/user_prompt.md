@@ -1,2 +1,5 @@
-MP4 path: {mp4_path}
-Segments: {segments}
+temp_filename: {temp_filename}
+文字起こしセグメント: {segments}
+
+上記の内容から、主要なシーンのみを抽出してください。
+目安として、抽出するシーン数は動画全体の40%程度にしてください。
