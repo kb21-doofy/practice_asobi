@@ -7,8 +7,9 @@ import os
 import time
 import tempfile
 import streamlit as st
-from datetime import datetime
-from usecase.service.transcription_service import TranscriptionService
+from usecase.service.extract_key_segments_service import ExtractKeySegmentsService
+from adapter.llm_factory import LLMFactory
+from domain.entities.llm_provider import LLMProvider
 # TODO: ハイライト抽出機能を追加する場合は、以下のコメントを解除する。
 # from usecase.service.extract_highlights_service import ExtractHighlightsService
 # from adapter.openai_client import OpenAIClient
@@ -21,26 +22,17 @@ st.set_page_config(
 )
 
 # キャッシュ設定（サービスインスタンスを再作成しないようにする）
-@st.cache_resource
-def _get_transcription_service(model_name: str):
-    """TranscriptionServiceインスタンスを取得する（キャッシュ使用）"""
-    return TranscriptionService(model_name=model_name)
-
 def _check_ffmpeg():
     """FFmpegがインストールされているか確認"""
-    if not TranscriptionService.check_ffmpeg():
+    if os.system("ffmpeg -version > /dev/null 2>&1") != 0:
         st.error("⚠️ FFmpegがインストールされていません。https://ffmpeg.org/download.html からダウンロードしてください。")
         st.stop()
-
-def _get_available_models():
-    """利用可能な処理モードの一覧を返す"""
-    return TranscriptionService.get_available_models()
 
 def main():
     """メイン関数"""
     st.title("🎤 文字起こしツール")
     st.markdown("""
-    音声ファイルからテキストへの文字起こしを行います。
+    MP4ファイルから重要な箇所だけを抽出して文字起こしします。
     """)
     
     # FFmpegの確認
@@ -48,14 +40,6 @@ def main():
     
     # サイドバー設定
     st.sidebar.title("設定")
-    
-    # モデル選択
-    model_option = st.sidebar.selectbox(
-        "モデルサイズを選択",
-        options=_get_available_models(),
-        index=1,  # baseをデフォルトに
-        help="大きいモデルほど精度が上がりますが、処理時間も増加します。"
-    )
     
     # 言語選択
     language_option = st.sidebar.selectbox(
@@ -105,81 +89,33 @@ def main():
                     temp_filename = tmp_file.name
                 
                 try:
-                    # サービスの取得（キャッシュから）
+                    # 重要箇所の抽出（抽象的な処理）
                     load_start = time.time()
                     progress_text = st.empty()
-                    progress_text.text("モデルをロード中...")
-                    transcription_service = _get_transcription_service(model_option)
-                    transcription_service.load_model()  # 初期化（初回のみ）
+                    progress_text.text("重要箇所を抽出中...")
+                    llm_factory = LLMFactory(LLMProvider.OPENAI)
+                    extract_service = ExtractKeySegmentsService(llm_factory)
+                    key_segments = extract_service.extract_key_segments(temp_filename)
                     load_end = time.time()
-                    progress_text.text(f"モデルロード完了（{load_end - load_start:.2f}秒）")
-                    
-                    # 文字起こし処理
-                    progress_text.text("文字起こし処理中...")
-                    transcribe_start = time.time()
-                    
-                    # 文字起こし実行
-                    result = transcription_service.transcribe(
-                        temp_filename,
-                        language=language_option if language_option else None
-                    )
-                    
-                    transcribe_end = time.time()
                     progress_text.empty()
                     
                     # 処理時間計算
-                    transcribe_time = transcribe_end - transcribe_start
-                    total_time = transcribe_end - load_start
+                    total_time = load_end - load_start
                     
                     # 結果表示
-                    st.markdown("### 文字起こし結果")
-                    st.success(f"処理完了（文字起こし: {transcribe_time:.2f}秒、合計: {total_time:.2f}秒）")
-                    
-                    # テキスト結果表示
-                    st.markdown("#### テキスト")
-                    st.text_area("", value=result["text"], height=200)
-                    
-                    # ダウンロードボタン
-                    st.download_button(
-                        label="テキストをダウンロード",
-                        data=result["text"],
-                        file_name=f"{os.path.splitext(uploaded_file.name)[0]}_transcript.txt",
-                        mime="text/plain"
-                    )
-                    
-                    # タイムスタンプ付きの詳細結果
-                    with st.expander("詳細（タイムスタンプ付き）"):
-                        # テーブル表示用のデータ準備
-                        table_data = []
-                        timestamp_text = ""
-                        
-                        for segment in result["segments"]:
-                            start_time = segment["start"]
-                            end_time = segment["end"]
-                            text = segment["text"]
-                            
-                            # 時間をフォーマット (HH:MM:SS.ms)
-                            start_formatted = str(datetime.utcfromtimestamp(start_time).strftime('%H:%M:%S.%f'))[:-3]
-                            end_formatted = str(datetime.utcfromtimestamp(end_time).strftime('%H:%M:%S.%f'))[:-3]
-                            
-                            table_data.append({
-                                "開始": start_formatted,
-                                "終了": end_formatted,
-                                "テキスト": text
-                            })
-                            
-                            timestamp_text += f"[{start_formatted} --> {end_formatted}] {text}\n"
-                        
-                        # テーブル表示
-                        st.table(table_data)
-                        
-                        # タイムスタンプ付きテキストのダウンロードボタン
-                        st.download_button(
-                            label="タイムスタンプ付きテキストをダウンロード",
-                            data=timestamp_text,
-                            file_name=f"{os.path.splitext(uploaded_file.name)[0]}_transcript_timestamps.txt",
-                            mime="text/plain"
-                        )
+                    st.markdown("### 重要箇所の文字起こし結果")
+                    st.success(f"処理完了（合計: {total_time:.2f}秒）")
+
+                    if key_segments:
+                        st.table([
+                            {
+                                "time_stamp": segment["time_stamp"],
+                                "text": segment["text"],
+                            }
+                            for segment in key_segments
+                        ])
+                    else:
+                        st.info("重要箇所が抽出されませんでした。")
                 
                 except Exception as e:
                     st.error(f"エラーが発生しました: {str(e)}")
@@ -196,15 +132,10 @@ def main():
         # サンプル説明
         with st.expander("使い方"):
             st.markdown("""
-            1. サイドバーでモデルサイズと言語を選択
-            2. 音声ファイルをアップロード
+            1. サイドバーで言語を選択
+            2. 動画ファイルをアップロード
             3. 「文字起こし開始」ボタンをクリック
             4. 結果を確認し、必要に応じてダウンロード
-            
-            **処理モードについて:**
-            - light: 最小・最速（低精度）
-            - standard: バランス型（推奨）
-            - accurate: 高精度（処理時間が長い）
             """)
 
 if __name__ == "__main__":

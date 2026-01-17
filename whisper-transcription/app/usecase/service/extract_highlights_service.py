@@ -8,7 +8,6 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import json
 from adapter.llm_factory import LLMFactory
-from domain.entities.llm_provider import LLMProvider
 from utli.logger import get_logger
 
 logger = get_logger(__name__)
@@ -37,7 +36,7 @@ class ExtractHighlightsService:
         
         # LLMクライアントを作成
         logger.debug("LLMクライアントを作成中")
-        llm_client = self.llm_factory.create_llm(LLMProvider.OPENAI)
+        llm_client = self.llm_factory.create_llm()
         logger.debug("LLMクライアント作成完了")
         
         # プロンプトを読み込む

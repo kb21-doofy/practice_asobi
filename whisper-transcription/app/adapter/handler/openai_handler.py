@@ -38,7 +38,6 @@ class OpenAIHandler(ILLMHandler):
                 }
             }
         
-        # 通常のOpenAIを使用（azure_endpointとapi_versionは不要）
         llm = ChatOpenAI(
             model=self._config.model_name,
             api_key=self._config.api_key,

@@ -9,7 +9,7 @@ main.pyの文字起こし処理を再現する
 
 処理の流れ：
 1. mp4ファイルを読み込む
-2. transcription_serviceを使用して文字起こしを行う
+2. 仮の文字起こし結果を生成する
 3. 文字起こし結果を使用してハイライトを抽出する
 4. ハイライトを使用して字幕を追加する
 5. 字幕付きのmp4ファイルを出力する
@@ -23,9 +23,11 @@ import argparse
 import time
 import tempfile
 from datetime import datetime
-from usecase.service.transcription_service import TranscriptionService
 from usecase.service.add_subtitles_service import AddSubtitlesService
-from config import Constants, SubtitleConstants
+from config import SubtitleConstants
+from adapter.llm_factory import LLMFactory
+from domain.entities.llm_provider import LLMProvider
+from usecase.service.extract_highlights_service import ExtractHighlightsService
 from moviepy import VideoFileClip
 
 
@@ -56,6 +58,12 @@ def main():
     )
     
     args = parser.parse_args()
+
+    provider_map = {
+        "openai": LLMProvider.OPENAI,
+        "gemini": LLMProvider.GEMINI,
+    }
+    selected_provider = provider_map[args.provider]
     
     # ファイルの存在確認
     if not os.path.exists(args.file):
@@ -63,7 +71,6 @@ def main():
         return 1
     
     # 動画ファイルの場合は音声を抽出
-    audio_file_path = args.file
     temp_audio_file = None
     is_video_file = False
     original_video = None
@@ -78,7 +85,6 @@ def main():
             temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             temp_audio_file.close()
             original_video.audio.write_audiofile(temp_audio_file.name, logger=None)
-            audio_file_path = temp_audio_file.name
             print("音声抽出完了", file=sys.stderr)
         except Exception as e:
             print(f"エラー: 動画からの音声抽出に失敗しました: {str(e)}", file=sys.stderr)
@@ -86,33 +92,18 @@ def main():
                 original_video.close()
             return 1
     
-    # サービスの初期化
-    print(f"プロバイダー '{args.provider}' を初期化中...", file=sys.stderr)
-    load_start = time.time()
-    
-    transcription_service = TranscriptionService()
-    transcription_service.load_model()  # 初期化
-    
-    load_end = time.time()
-    print(f"モデルロード完了（{load_end - load_start:.2f}秒）", file=sys.stderr)
-    
-    # 文字起こし処理
-    print("文字起こし処理中...", file=sys.stderr)
+    # 文字起こし処理（仮）
+    print("文字起こし処理中（仮）...", file=sys.stderr)
     transcribe_start = time.time()
     
-    # 文字起こし実行（main.pyと同じ処理）
-    result = transcription_service.transcribe(
-        audio_file_path,
-        language=args.language if args.language else None
-    )
+    result = _build_placeholder_transcript(args.language)
     
     transcribe_end = time.time()
     
     # 処理時間計算
     transcribe_time = transcribe_end - transcribe_start
-    total_time = transcribe_end - load_start
     
-    print(f"処理完了（文字起こし: {transcribe_time:.2f}秒、合計: {total_time:.2f}秒）", file=sys.stderr)
+    print(f"処理完了（文字起こし: {transcribe_time:.2f}秒）", file=sys.stderr)
     
     # タイムスタンプ付きテキストの生成（辞書形式）
     timestamp_list = []
@@ -132,11 +123,7 @@ def main():
             "text": text
         })
         
-    from adapter.llm_factory import LLMFactory
-    from domain.entities.llm_provider import LLMProvider
-    from usecase.service.extract_highlights_service import ExtractHighlightsService
-
-    llm_factory = LLMFactory(LLMProvider.OPENAI)
+    llm_factory = LLMFactory(selected_provider)
     extract_highlights_service = ExtractHighlightsService(llm_factory)
     highlights = extract_highlights_service.extract_highlights(timestamp_list)
  
@@ -197,6 +184,22 @@ def main():
         os.unlink(temp_audio_file.name)
     
     return 0
+
+
+def _build_placeholder_transcript(language: str | None) -> dict:
+    text = "[placeholder] 文字起こしは未実装です。"
+    if language:
+        text = f"{text} language={language}"
+    return {
+        "text": text,
+        "segments": [
+            {
+                "start": 0.0,
+                "end": 1.0,
+                "text": text,
+            }
+        ],
+    }
 
 
 if __name__ == "__main__":

@@ -13,28 +13,6 @@ class Settings:
         """初期化"""
         self._load_settings()
     
-    def _load_settings(self) -> None:
-        """
-        環境変数から設定を読み込む
-        
-        .envファイルからも読み込む（python-dotenvがインストールされている場合）
-        """
-        # OpenAI API関連の設定
-        self.openai_api_key = self._get_env("OPENAI_API_KEY")
-        
-        # Azure OpenAI関連の設定（openai_handler.pyで使用）
-        self.openai_model_name = self._get_env("OPENAI_MODEL_NAME")
-        self.openai_azure_endpoint = self._get_env("OPENAI_AZURE_ENDPOINT")
-        self.openai_api_version = self._get_env("OPENAI_API_VERSION")
-        
-        # プロパティとしてアクセスできるようにする（互換性のため）
-        # 大文字のプロパティ名でアクセス可能にする（openai_handler.pyで使用）
-        self.OPENAI_API_KEY = self.openai_api_key
-        self.OPENAI_MODEL_NAME = self.openai_model_name
-        self.OPENAI_AZURE_ENDPOINT = self.openai_azure_endpoint
-        self.OPENAI_API_VERSION = self.openai_api_version
-        
-    
     @staticmethod
     def _get_env(key: str, default: Optional[str] = None) -> Optional[str]:
         """
@@ -49,6 +27,28 @@ class Settings:
         """
         return os.getenv(key, default)
 
+    
+    def _load_settings(self) -> None:
+        """
+        環境変数から設定を読み込む
+        
+        .envファイルからも読み込む（python-dotenvがインストールされている場合）
+        """
+        # OpenAI関連の設定（openai_handler.pyで使用）
+        self.openai_api_key = self._get_env("OPENAI_API_KEY")
+        self.openai_model_name = self._get_env("OPENAI_MODEL_NAME")
+
+        # Gemini関連の設定（gemini_handler.pyで使用）
+        self.gemini_model_name = self._get_env("GEMINI_MODEL_NAME")
+        self.google_api_key = self._get_env("GOOGLE_API_KEY")
+        
+        # プロパティとしてアクセスできるようにする（互換性のため）
+        # 大文字のプロパティ名でアクセス可能にする（openai_handler.pyで使用）
+        self.OPENAI_API_KEY = self.openai_api_key
+        self.OPENAI_MODEL_NAME = self.openai_model_name
+
+        self.GEMINI_MODEL_NAME = self.gemini_model_name
+        self.GOOGLE_API_KEY = self.google_api_key
 
 class Constants:
     """定数クラス"""
