@@ -6,7 +6,10 @@
       "items": {
         "type": "object",
         "properties": {
-          "time_stamp": {
+          "start_time": {
+            "type": "string"
+          },
+          "end_time": {
             "type": "string"
           },
           "text": {
@@ -14,7 +17,8 @@
           }
         },
         "required": [
-          "time_stamp",
+          "start_time",
+          "end_time",
           "text"
         ],
         "additionalProperties": false
