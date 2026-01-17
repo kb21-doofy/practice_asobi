@@ -53,10 +53,10 @@ class Settings:
 class Constants:
     """定数クラス"""
     
-    # Whisperモデル関連
-    AVAILABLE_MODELS = ["tiny", "base", "small", "medium", "large"]
+    # 文字起こし処理モード関連
+    AVAILABLE_MODELS = ["light", "standard", "accurate"]
     
-    WHISPER_DEFAULT_MODEL = "base"
+    TRANSCRIPTION_DEFAULT_MODEL = "standard"
             
     # OpenAI LLMモデル関連
     OPENAI_AVAILABLE_MODELS = [

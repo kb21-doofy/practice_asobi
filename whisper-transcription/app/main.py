@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Whisper文字起こしWebアプリ（Streamlit使用）
+文字起こしWebアプリ（Streamlit使用）
 """
 
 import os
@@ -8,39 +8,39 @@ import time
 import tempfile
 import streamlit as st
 from datetime import datetime
-from usecase.service.whisper_service import WhisperService
+from usecase.service.transcription_service import TranscriptionService
 # TODO: ハイライト抽出機能を追加する場合は、以下のコメントを解除する。
 # from usecase.service.extract_highlights_service import ExtractHighlightsService
 # from adapter.openai_client import OpenAIClient
 
 # ページ設定
 st.set_page_config(
-    page_title="Whisper文字起こしツール",
+    page_title="文字起こしツール",
     page_icon="🎤",
     layout="wide"
 )
 
 # キャッシュ設定（サービスインスタンスを再作成しないようにする）
 @st.cache_resource
-def _get_whisper_service(model_name: str):
-    """WhisperServiceインスタンスを取得する（キャッシュ使用）"""
-    return WhisperService(model_name=model_name)
+def _get_transcription_service(model_name: str):
+    """TranscriptionServiceインスタンスを取得する（キャッシュ使用）"""
+    return TranscriptionService(model_name=model_name)
 
 def _check_ffmpeg():
     """FFmpegがインストールされているか確認"""
-    if not WhisperService.check_ffmpeg():
+    if not TranscriptionService.check_ffmpeg():
         st.error("⚠️ FFmpegがインストールされていません。https://ffmpeg.org/download.html からダウンロードしてください。")
         st.stop()
 
 def _get_available_models():
-    """利用可能なWhisperモデルの一覧を返す"""
-    return WhisperService.get_available_models()
+    """利用可能な処理モードの一覧を返す"""
+    return TranscriptionService.get_available_models()
 
 def main():
     """メイン関数"""
-    st.title("🎤 Whisper文字起こしツール")
+    st.title("🎤 文字起こしツール")
     st.markdown("""
-    OpenAIのWhisperモデルを使用して、音声ファイルからテキストへの文字起こしを行います。
+    音声ファイルからテキストへの文字起こしを行います。
     """)
     
     # FFmpegの確認
@@ -70,23 +70,22 @@ def main():
         help="音声の言語を指定します。自動検出も可能です。"
     )
     
-    # デバイス情報表示
-    device_display = "GPU (CUDA)" if WhisperService.is_gpu_available() else "CPU"
-    st.sidebar.info(f"使用デバイス: {device_display}")
-    
-    if not WhisperService.is_gpu_available():
-        st.sidebar.warning("GPUが検出されませんでした。処理が遅くなる可能性があります。")
-    
     # サイドバーにGitHubリンク
     st.sidebar.markdown("---")
     st.sidebar.markdown("[GitHubリポジトリ](https://github.com/yourusername/whisper-transcription)")
     
     # ファイルアップロード
-    uploaded_file = st.file_uploader("音声ファイルをアップロード", 
-                                    type=["mp3", "wav", "m4a", "ogg", "flac"],
-                                    help="対応フォーマット: MP3, WAV, M4A, OGG, FLAC")
+    uploaded_file = st.file_uploader(
+        "動画ファイルをアップロード",
+        type=None,
+        help="対応フォーマット: MP4"
+    )
     
     if uploaded_file is not None:
+        file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+        if file_ext != ".mp4":
+            st.error("⚠️ MP4形式のみ対応しています。別のファイル形式が選択されています。")
+            st.stop()
         # ファイル情報表示
         file_size_mb = uploaded_file.size / (1024 * 1024)
         st.info(f"ファイル: {uploaded_file.name} ({file_size_mb:.2f} MB)")
@@ -110,8 +109,8 @@ def main():
                     load_start = time.time()
                     progress_text = st.empty()
                     progress_text.text("モデルをロード中...")
-                    whisper_service = _get_whisper_service(model_option)
-                    whisper_service.load_model()  # モデルをロード（初回のみ）
+                    transcription_service = _get_transcription_service(model_option)
+                    transcription_service.load_model()  # 初期化（初回のみ）
                     load_end = time.time()
                     progress_text.text(f"モデルロード完了（{load_end - load_start:.2f}秒）")
                     
@@ -120,7 +119,7 @@ def main():
                     transcribe_start = time.time()
                     
                     # 文字起こし実行
-                    result = whisper_service.transcribe(
+                    result = transcription_service.transcribe(
                         temp_filename,
                         language=language_option if language_option else None
                     )
@@ -202,14 +201,11 @@ def main():
             3. 「文字起こし開始」ボタンをクリック
             4. 結果を確認し、必要に応じてダウンロード
             
-            **モデルサイズについて:**
-            - tiny: 最小・最速（低精度）
-            - base: バランス型（推奨）
-            - small: 中程度の精度
-            - medium: 高精度
-            - large: 最高精度（処理時間が長い）
+            **処理モードについて:**
+            - light: 最小・最速（低精度）
+            - standard: バランス型（推奨）
+            - accurate: 高精度（処理時間が長い）
             """)
 
 if __name__ == "__main__":
     main()
-

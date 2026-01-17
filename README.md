@@ -17,11 +17,11 @@ $ yt-dlp -x --audio-format mp4 "https://www.youtube.com/watch?v=nf357cUl8-A"
 
 
 ## STEP 2 「動画に字幕を自動生成」
-- モデルは可変["tiny", "base", "small", "medium", "large"]より選べる。
+- 処理モードは可変["light", "standard", "accurate"]より選べる。
 - whisper-transcription直下で実行
 
 ```
-$ uv run python app/localtest_script.py mp4_data/data_001.mp4 --model base
+$ uv run python app/localtest_script.py mp4_data/data_001.mp4 --model standard
 ```
 
 

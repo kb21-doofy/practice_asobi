@@ -2,8 +2,8 @@
 テスト用モックデータ
 """
 
-# Whisperの出力形式のモックデータ
-MOCK_WHISPER_RESULT = {
+# 文字起こし出力形式のモックデータ
+MOCK_TRANSCRIPTION_RESULT = {
     "language": "ja",
     "text": "明日1月2日は全国的に荒れた天気に注意が必要です。2本会場では、石節の増加が懸念されますね。今日も勇気の強い状況です。明日も要注意。明日のまず天気図を頂きましょうか。2日、午前9時の予想天気図です。明日も帰り国大きい圧。東に帝圧、成功当てです。広がたき圧は一が継続と方なるみです。地球は強い管理が流れ込んだままとなるみです。2本会場は特に雪の量が増加すると、このようにするときは天気変化で2本会場の部分を見ます。基本的には古物は雪です。お繰り草薬から3日ほどの園頑部では雨の古ところがあるんですけども、日録行きとしてお考えください。天気図は変わらずとなるみで、東日本の内力部中心に席節が増加するという風にあります。どれぐらいの液がつもるのか、これが明日の6時以降です。明日1個を変わるまでの18時間で想定した量で知って、東日本の2本会場は多いところでは、広くなられているところは50cm以上です。その中心にかなり増えます。あとは北京北から3人地方に関しても、おいところで230cmぐらいの液が、明日の朝以降、夜にかけて想定される状況です。大液に対して東日本の4回側に用意していた。また、もう一つあるのが風に関しては、特に北日本があすもに強い状況を続きます。これがあすの2中帯でして、4中帯でして、2種類の風が平均10m前後、福島方向になります。エンガムには本当に近いところを限定になりますけど、福島による見通しながら、そろそろ友達ということで、先に旅行先から戻れる方が出てくると思うんですけど、この間が特に車の前に注意としています。最新の貴重情報は、ウェザーニュースのアプリからもご確認いただけます。",
     "segments": [
@@ -58,5 +58,5 @@ from domain.entities.llm_provider import LLMProvider
 llm_factory = LLMFactory(LLMProvider.OPENAI)
 extract_highlights_service = ExtractHighlightsService(llm_factory)
 
-result = extract_highlights_service.extract_highlights(MOCK_WHISPER_RESULT)
+result = extract_highlights_service.extract_highlights(MOCK_TRANSCRIPTION_RESULT)
 print(result)

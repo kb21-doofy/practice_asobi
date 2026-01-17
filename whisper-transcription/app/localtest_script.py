@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ローカルテスト用スクリプト
-main.pyのwhisper_service処理を再現する
+main.pyの文字起こし処理を再現する
 
 
 入力： mp4ファイル
@@ -9,7 +9,7 @@ main.pyのwhisper_service処理を再現する
 
 処理の流れ：
 1. mp4ファイルを読み込む
-2. whisper_serviceを使用して文字起こしを行う
+2. transcription_serviceを使用して文字起こしを行う
 3. 文字起こし結果を使用してハイライトを抽出する
 4. ハイライトを使用して字幕を追加する
 5. 字幕付きのmp4ファイルを出力する
@@ -23,7 +23,7 @@ import argparse
 import time
 import tempfile
 from datetime import datetime
-from usecase.service.whisper_service import WhisperService
+from usecase.service.transcription_service import TranscriptionService
 from usecase.service.add_subtitles_service import AddSubtitlesService
 from config import Constants, SubtitleConstants
 from moviepy import VideoFileClip
@@ -31,16 +31,16 @@ from moviepy import VideoFileClip
 
 def main():
     """メイン関数"""
-    parser = argparse.ArgumentParser(description="Whisper文字起こしローカルテストスクリプト")
+    parser = argparse.ArgumentParser(description="文字起こしローカルテストスクリプト")
     parser.add_argument(
         "file",
         help="文字起こしを行う音声ファイルまたは動画ファイル（mp3, wav, m4a, ogg, flac, mp4等）へのパス"
     )
     parser.add_argument(
-        "--model",
-        default="base",
-        choices=Constants.AVAILABLE_MODELS,
-        help=f"使用するWhisperモデルのサイズ（デフォルト: base）"
+        "--provider",
+        default="openai",
+        choices=["gemini", "openai"],
+        help="使用するLLMプロバイダー（デフォルト: openai）"
     )
     parser.add_argument(
         "--language",
@@ -87,11 +87,11 @@ def main():
             return 1
     
     # サービスの初期化
-    print(f"モデル '{args.model}' をロード中...", file=sys.stderr)
+    print(f"プロバイダー '{args.provider}' を初期化中...", file=sys.stderr)
     load_start = time.time()
     
-    whisper_service = WhisperService(model_name=args.model)
-    whisper_service.load_model()  # モデルをロード
+    transcription_service = TranscriptionService()
+    transcription_service.load_model()  # 初期化
     
     load_end = time.time()
     print(f"モデルロード完了（{load_end - load_start:.2f}秒）", file=sys.stderr)
@@ -101,7 +101,7 @@ def main():
     transcribe_start = time.time()
     
     # 文字起こし実行（main.pyと同じ処理）
-    result = whisper_service.transcribe(
+    result = transcription_service.transcribe(
         audio_file_path,
         language=args.language if args.language else None
     )
