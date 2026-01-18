@@ -20,7 +20,7 @@ $ yt-dlp -x --audio-format mp4 "https://www.youtube.com/watch?v=nf357cUl8-A"
 - whisper-transcription直下で実行
 
 ```
-$ uv run python app/localtest_script.py mp4_data/data_001.mp4 --provider openai
+$ uv run python -m streamlit run app/main.py
 ```
 
 
@@ -44,9 +44,5 @@ $ yt-dlp "https://www.youtube.com/watch?v=8bX5ASmVh4Q" -F
 ```
 $ yt-dlp -x --audio-format mp3 "https://www.youtube.com/watch?v=nf357cUl8-A"
 ```
-
-## テスト
-このスクリプトでOpenAIのLLMの処理ができているか確認している。
-whisper-transcription/app/prompt_test.py
 
 ## 
