@@ -9,5 +9,6 @@ class ILLMHandler(ABC):
         user_prompt: str,
         temperature: float | None,
         json_schema: dict | None,
+        media_path: str | None = None,
     ) -> str:
         pass

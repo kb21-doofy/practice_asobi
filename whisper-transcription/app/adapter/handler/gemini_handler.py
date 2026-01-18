@@ -24,6 +24,7 @@ class GeminiHandler(ILLMHandler):
         user_prompt: str,
         temperature: float | None,
         json_schema: dict | None,
+        media_path: str | None = None,
     ) -> str:
         if not self._config.model_name or not self._config.api_key:
             logger.warning("Gemini設定が不足しているため、プレースホルダーを返します。")
@@ -35,10 +36,24 @@ class GeminiHandler(ILLMHandler):
             temperature=temperature,
         )
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
+        messages = [SystemMessage(content=system_prompt)]
+        if media_path:
+            with open(media_path, "rb") as f:
+                media_bytes = f.read()
+            messages.append(
+                HumanMessage(
+                    content=[
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "media",
+                            "mime_type": "video/mp4",
+                            "data": media_bytes,
+                        },
+                    ]
+                )
+            )
+        else:
+            messages.append(HumanMessage(content=user_prompt))
 
         res = llm.invoke(
             input=messages,

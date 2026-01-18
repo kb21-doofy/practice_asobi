@@ -63,6 +63,7 @@ class ExtractKeySegmentsService:
                 user_prompt=user_prompt,
                 temperature=0.2,
                 json_schema=json_schema,
+                media_path=mp4_path,
             )
             response_length = len(response_content) if response_content else 0
             logger.info(f"LLM invoke complete: response_length={response_length}")

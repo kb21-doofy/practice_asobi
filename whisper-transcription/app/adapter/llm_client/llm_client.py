@@ -16,6 +16,7 @@ class LLMClient(ILLMHandler):
         user_prompt: str,
         temperature: float | None = None,
         json_schema: dict | None = None,
+        media_path: str | None = None,
     ) -> str:
         start_time = time.time()
 
@@ -25,6 +26,7 @@ class LLMClient(ILLMHandler):
                 user_prompt=user_prompt,
                 temperature=temperature,
                 json_schema=json_schema,
+                media_path=media_path,
             )
 
             duration = time.time() - start_time
@@ -33,6 +35,7 @@ class LLMClient(ILLMHandler):
                 f"=== SYSTEM PROMPT ===\n{system_prompt}\n"
                 f"=== USER PROMPT ===\n{user_prompt}\n"
                 f"=== JSON schema ===\n{json_schema if json_schema else 'None'}\n"
+                f"=== MEDIA PATH ===\n{media_path if media_path else 'None'}\n"
                 f"=== RESPONSE ===\n{response}\n"
                 f"=== END LLM CALL ==="
             )
@@ -46,6 +49,7 @@ class LLMClient(ILLMHandler):
                 f"=== SYSTEM PROMPT ===\n{system_prompt}\n"
                 f"=== USER PROMPT ===\n{user_prompt}\n"
                 f"=== JSON schema ===\n{json_schema if json_schema else 'None'}\n"
+                f"=== MEDIA PATH ===\n{media_path if media_path else 'None'}\n"
             )
 
             if isinstance(e, (ConnectionError, TimeoutError)):

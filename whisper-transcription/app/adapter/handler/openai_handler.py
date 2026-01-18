@@ -22,6 +22,7 @@ class OpenAIHandler(ILLMHandler):
         user_prompt: str,
         temperature: float | None,
         json_schema: dict | None,
+        media_path: str | None = None,
     ) -> str:
         
         # response_formatを適切な形式に変換
