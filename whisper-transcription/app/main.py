@@ -5,11 +5,18 @@
 
 import os
 import time
+import json
+from datetime import datetime
 import tempfile
 import streamlit as st
-from usecase.service.extract_key_segments_service import ExtractKeySegmentsService
+from usecase.service.trim_video_service import TrimVideoService
+from usecase.service.add_subtitles_service import AddSubtitlesService
+from usecase.service.transcribe_video_service import TranscribeVideoService
 from adapter.llm_factory import LLMFactory
 from domain.entities.llm_provider import LLMProvider
+from utli.logger import get_logger
+
+logger = get_logger(__name__)
 
 # ページ設定
 st.set_page_config(
@@ -55,7 +62,7 @@ def main():
     provider_option = st.sidebar.selectbox(
         "プロバイダーを選択",
         options=["openai", "gemini"],
-        index=0,
+        index=1,
         help="重要箇所抽出に使用するLLMプロバイダーを選択します。"
     )
     
@@ -83,11 +90,11 @@ def main():
         st.audio(uploaded_file, format=f"audio/{uploaded_file.name.split('.')[-1]}")
         
         # 文字起こし実行ボタン
-        transcribe_button = st.button("文字起こし開始", type="primary")
+        transcribe_button = st.button("動画処理開始", type="primary")
         
         if transcribe_button:
             # 処理開始
-            with st.spinner("文字起こし処理中..."):
+            with st.spinner("動画処理中..."):
                 temp_filename = None
                 # 一時ファイルとして保存
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
@@ -98,16 +105,16 @@ def main():
                     # 重要箇所の抽出（抽象的な処理）
                     load_start = time.time()
                     progress_text = st.empty()
-                    progress_text.text("重要箇所を抽出中...")
+                    progress_text.text("重要シーンを抽出中...")
                     provider_map = {
                         "openai": LLMProvider.OPENAI,
                         "gemini": LLMProvider.GEMINI,
                     }
                     llm_factory = LLMFactory(provider_map[provider_option])
-                    extract_service = ExtractKeySegmentsService(llm_factory)
-                    key_segments = extract_service.extract_key_segments(temp_filename)
-                    print("999", key_segments)
-                    st.success("重要箇所の抽出が完了しました。")
+                    trim_service = TrimVideoService(llm_factory)
+                    payload = trim_service.extract_key_segments(temp_filename)
+                    logger.info(f"trim payload keys: {list(payload.keys())}")
+                    st.success("トリミング範囲の抽出が完了しました。")
                     load_end = time.time()
                     progress_text.empty()
                     
@@ -115,16 +122,77 @@ def main():
                     total_time = load_end - load_start
                     
                     # 結果表示
-                    st.markdown("### 重要箇所の文字起こし結果")
+                    st.markdown("### トリミング範囲")
                     st.success(f"処理完了（合計: {total_time:.2f}秒）")
 
-                    if key_segments:
+                    raw_response = payload.get("raw_response")
+                    trim_payload = {k: v for k, v in payload.items() if k != "raw_response"}
+                    logger.info(f"important_scenes count: {len(trim_payload.get('important_scenes', []))}")
+                    if raw_response:
                         st.text_area(
-                            "LLMレスポンス",
-                            value=key_segments[0].get("raw_response", ""),
-                            height=240,
+                            "重要シーン抽出の生レスポンス",
+                            value=raw_response,
+                            height=200,
                         )
+
+                    if trim_payload.get("important_scenes"):
+                        logger.info("trim flow: important_scenes found")
+                        try:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as out_file:
+                                output_video_path = out_file.name
+                            logger.info(f"trim flow: output_video_path={output_video_path}")
+                            trim_start, trim_end = trim_service.trim_by_segments(
+                                temp_filename,
+                                trim_payload,
+                                output_video_path,
+                            )
+                            logger.info(f"trim flow: trim_start={trim_start}, trim_end={trim_end}")
+                            start_formatted = str(datetime.utcfromtimestamp(trim_start).strftime("%H:%M:%S.%f"))[:-3]
+                            end_formatted = str(datetime.utcfromtimestamp(trim_end).strftime("%H:%M:%S.%f"))[:-3]
+                            st.info(f"start_time: {start_formatted} / end_time: {end_formatted}")
+                            progress_text.text("文字起こし処理を開始中...")
+                            logger.info("transcribe_video start")
+                            transcribe_factory = LLMFactory(LLMProvider.GEMINI)
+                            transcribe_service = TranscribeVideoService(transcribe_factory)
+                            transcribed = transcribe_service.transcribe(output_video_path)
+                            logger.info("transcribe_video complete")
+                            progress_text.text("文字起こし処理が完了しました。")
+                            segments = transcribed.get("segments", [])
+                            logger.info(f"subtitle flow: segments_count={len(segments)}")
+                            subtitle_service = AddSubtitlesService()
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as subtitle_file:
+                                subtitle_output_path = subtitle_file.name
+                            logger.info(f"subtitle flow: subtitle_output_path={subtitle_output_path}")
+                            subtitle_service.add_subtitles_to_trimmed_video(
+                                output_video_path,
+                                segments,
+                                0.0,
+                                subtitle_output_path,
+                            )
+                            logger.info("subtitle flow: add_subtitles_to_trimmed_video complete")
+                            st.markdown("### 字幕付き切り抜き動画")
+                            st.video(subtitle_output_path)
+                            with open(subtitle_output_path, "rb") as f:
+                                st.download_button(
+                                    label="字幕付き切り抜き動画をダウンロード",
+                                    data=f,
+                                    file_name="trimmed_subtitled.mp4",
+                                    mime="video/mp4",
+                                )
+                            st.text_area(
+                                "重要シーン抽出レスポンス",
+                                value=json.dumps(trim_payload, ensure_ascii=False, indent=2),
+                                height=200,
+                            )
+                            st.text_area(
+                                "文字起こしレスポンス",
+                                value=json.dumps(transcribed, ensure_ascii=False, indent=2),
+                                height=240,
+                            )
+                        except Exception as e:
+                            st.error(f"切り抜き処理でエラーが発生しました: {str(e)}")
                     else:
+                        logger.warning("trim ranges is empty or missing")
                         st.info("重要箇所が抽出されませんでした。")
                 
                 except Exception as e:

@@ -111,3 +111,81 @@ class AddSubtitlesService:
         
         print(f"字幕付き動画を '{output_path}' に保存しました。", file=sys.stderr)
 
+    def add_subtitles_to_trimmed_video(
+        self,
+        video_path: str,
+        segments: List[Dict],
+        trim_start_seconds: float,
+        output_path: str,
+    ) -> None:
+        """
+        切り抜き後の動画に字幕を追加する
+
+        Args:
+            video_path: 切り抜き済み動画ファイルのパス
+            segments: LLMのセグメントリスト
+                各要素は {"start_time": "00:02:19.000", "end_time": "00:02:24.000", "text": "テキスト"} の形式
+            trim_start_seconds: 元動画での切り抜き開始秒
+            output_path: 出力動画ファイルのパス
+        """
+        print("切り抜き動画に字幕を追加中...", file=sys.stderr)
+
+        video = VideoFileClip(video_path)
+
+        subtitles = []
+        for item in segments:
+            start_time = item.get("start_time")
+            end_time = item.get("end_time")
+            text = item.get("text", "")
+            if not start_time or not end_time or not text:
+                continue
+
+            start_seconds = time_to_seconds(start_time) - trim_start_seconds
+            end_seconds = time_to_seconds(end_time) - trim_start_seconds
+
+            if end_seconds <= 0:
+                continue
+
+            start_seconds = max(0.0, start_seconds)
+            end_seconds = min(video.duration, end_seconds)
+            if end_seconds <= start_seconds:
+                continue
+
+            subtitles.append(((start_seconds, end_seconds), text))
+
+        if not subtitles:
+            video.close()
+            raise ValueError("字幕用のセグメントが空です。")
+
+        japanese_font_path = self._get_japanese_font_path()
+        generator = lambda txt: TextClip(
+            text=txt,
+            font=japanese_font_path,
+            font_size=self.font_size,
+            color=self.font_color,
+            stroke_color=self.stroke_color,
+            stroke_width=self.stroke_width
+        )
+
+        subtitle_clips = SubtitlesClip(
+            subtitles,
+            make_textclip=generator
+        )
+        subtitle_clips = subtitle_clips.with_position(("center", "bottom"))
+
+        final_video = CompositeVideoClip(
+            [video, subtitle_clips],
+            size=video.size
+        ).with_duration(video.duration)
+
+        final_video.write_videofile(
+            output_path,
+            fps=video.fps,
+            codec="libx264",
+            audio_codec="aac",
+            logger=None,
+        )
+
+        video.close()
+        final_video.close()
+        print(f"字幕付き動画を '{output_path}' に保存しました。", file=sys.stderr)
