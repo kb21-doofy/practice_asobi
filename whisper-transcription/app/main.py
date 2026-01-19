@@ -61,12 +61,10 @@ def main():
 
     translate_language_option = st.sidebar.selectbox(
         "翻訳先言語を選択（翻訳しない場合は空欄）",
-        options=["", "en", "ja", "zh", "de", "fr", "es", "ko", "ru"],
+        options=["", "en", "ja", "ko"],
         index=0,
         format_func=lambda x: {
-            "": "翻訳しない", "en": "英語", "ja": "日本語", "zh": "中国語",
-            "de": "ドイツ語", "fr": "フランス語", "es": "スペイン語",
-            "ko": "韓国語", "ru": "ロシア語"
+            "": "翻訳しない", "en": "英語", "ja": "日本語", "ko": "韓国語"
         }.get(x, x),
         help="文字起こし結果を指定言語に翻訳します。"
     )
@@ -187,11 +185,13 @@ def main():
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as subtitle_file:
                                 subtitle_output_path = subtitle_file.name
                             logger.info(f"subtitle flow: subtitle_output_path={subtitle_output_path}")
+                            subtitle_language = translate_language_option or language_option or None
                             subtitle_service.add_subtitles_to_trimmed_video(
                                 output_video_path,
                                 segments,
                                 0.0,
                                 subtitle_output_path,
+                                language=subtitle_language,
                             )
                             logger.info("subtitle flow: add_subtitles_to_trimmed_video complete")
                             st.markdown("### 字幕付き切り抜き動画")

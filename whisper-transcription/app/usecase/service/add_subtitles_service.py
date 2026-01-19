@@ -35,20 +35,32 @@ class AddSubtitlesService:
         self.stroke_color = stroke_color if stroke_color is not None else SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR
         self.stroke_width = stroke_width if stroke_width is not None else SubtitleConstants.SUBTITLE_DEFAULT_STROKE_WIDTH
     
-    def _get_japanese_font_path(self) -> str:
+    def _get_font_path(self, language: Optional[str]) -> str:
         """
-        macOS用の日本語フォントパスを取得
-        
+        macOS用のフォントパスを取得
+
+        Args:
+            language: 字幕の言語コード
+
         Returns:
             フォントパス
         """
-        japanese_font_path = '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc'
+        if language == "ko":
+            korean_font_path = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+            if os.path.exists(korean_font_path):
+                return korean_font_path
+        japanese_font_path = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
         if not os.path.exists(japanese_font_path):
-            # フォールバック: 他のHiraginoフォントを試す
-            japanese_font_path = '/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc'
+            japanese_font_path = "/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc"
         return japanese_font_path
     
-    def add_subtitles_to_video(self, video_path: str, timestamp_list: List[Dict], output_path: str) -> None:
+    def add_subtitles_to_video(
+        self,
+        video_path: str,
+        timestamp_list: List[Dict],
+        output_path: str,
+        language: Optional[str] = None,
+    ) -> None:
         """
         動画に字幕を追加する
         
@@ -70,12 +82,10 @@ class AddSubtitlesService:
             text = item["text"]
             subtitles.append(((start_seconds, end_seconds), text))
         
-        # 字幕クリップを作成（日本語対応フォントを使用）
-        japanese_font_path = self._get_japanese_font_path()
-        
+        font_path = self._get_font_path(language)
         generator = lambda txt: TextClip(
             text=txt,
-            font=japanese_font_path,
+            font=font_path,
             font_size=self.font_size,
             color=self.font_color,
             stroke_color=self.stroke_color,
@@ -117,6 +127,7 @@ class AddSubtitlesService:
         segments: List[Dict],
         trim_start_seconds: float,
         output_path: str,
+        language: Optional[str] = None,
     ) -> None:
         """
         切り抜き後の動画に字幕を追加する
@@ -157,10 +168,10 @@ class AddSubtitlesService:
             video.close()
             raise ValueError("字幕用のセグメントが空です。")
 
-        japanese_font_path = self._get_japanese_font_path()
+        font_path = self._get_font_path(language)
         generator = lambda txt: TextClip(
             text=txt,
-            font=japanese_font_path,
+            font=font_path,
             font_size=self.font_size,
             color=self.font_color,
             stroke_color=self.stroke_color,
