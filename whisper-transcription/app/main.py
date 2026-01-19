@@ -12,6 +12,7 @@ import streamlit as st
 from usecase.service.trim_video_service import TrimVideoService
 from usecase.service.add_subtitles_service import AddSubtitlesService
 from usecase.service.transcribe_video_service import TranscribeVideoService
+from usecase.service.translate_segments_service import TranslateSegmentsService
 from adapter.llm_factory import LLMFactory
 from domain.entities.llm_provider import LLMProvider
 from utli.logger import get_logger
@@ -56,6 +57,18 @@ def main():
             "ko": "韓国語", "ru": "ロシア語"
         }.get(x, x),
         help="音声の言語を指定します。自動検出も可能です。"
+    )
+
+    translate_language_option = st.sidebar.selectbox(
+        "翻訳先言語を選択（翻訳しない場合は空欄）",
+        options=["", "en", "ja", "zh", "de", "fr", "es", "ko", "ru"],
+        index=0,
+        format_func=lambda x: {
+            "": "翻訳しない", "en": "英語", "ja": "日本語", "zh": "中国語",
+            "de": "ドイツ語", "fr": "フランス語", "es": "スペイン語",
+            "ko": "韓国語", "ru": "ロシア語"
+        }.get(x, x),
+        help="文字起こし結果を指定言語に翻訳します。"
     )
 
     # プロバイダー選択
@@ -158,6 +171,17 @@ def main():
                             logger.info("transcribe_video complete")
                             progress_text.text("文字起こし処理が完了しました。")
                             segments = transcribed.get("segments", [])
+                            translated = None
+                            if translate_language_option:
+                                progress_text.text("翻訳処理を開始中...")
+                                translate_factory = LLMFactory(LLMProvider.GEMINI)
+                                translate_service = TranslateSegmentsService(translate_factory)
+                                translated = translate_service.translate(
+                                    segments,
+                                    target_language=translate_language_option,
+                                )
+                                segments = translated.get("segments", segments)
+                                progress_text.text("翻訳処理が完了しました。")
                             logger.info(f"subtitle flow: segments_count={len(segments)}")
                             subtitle_service = AddSubtitlesService()
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as subtitle_file:
@@ -189,6 +213,12 @@ def main():
                                 value=json.dumps(transcribed, ensure_ascii=False, indent=2),
                                 height=240,
                             )
+                            if translated:
+                                st.text_area(
+                                    "翻訳レスポンス",
+                                    value=json.dumps(translated, ensure_ascii=False, indent=2),
+                                    height=240,
+                                )
                         except Exception as e:
                             st.error(f"切り抜き処理でエラーが発生しました: {str(e)}")
                     else:

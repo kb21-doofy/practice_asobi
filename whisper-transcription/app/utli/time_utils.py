@@ -22,9 +22,15 @@ def time_to_seconds(time_str: str | int | float) -> float:
         minutes = int(parts[0])
         seconds_token = parts[1]
     elif len(parts) == 3:
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        seconds_token = parts[2]
+        # Handle malformed "MM:SS:ms" like 00:05:000 from LLM output.
+        if "." not in parts[2] and len(parts[2]) == 3 and parts[2].isdigit():
+            hours = 0
+            minutes = int(parts[0])
+            seconds_token = f"{parts[1]}.{parts[2]}"
+        else:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            seconds_token = parts[2]
     else:
         raise ValueError(f"Unsupported time format: {time_str}")
 
