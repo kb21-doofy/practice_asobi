@@ -86,6 +86,40 @@ class TrimVideoService:
         video.close()
         return start_seconds, end_seconds
 
+    def trim_by_range(
+        self,
+        video_path: str,
+        start_seconds: float,
+        end_seconds: float,
+        output_path: str,
+    ) -> tuple[float, float]:
+        """
+        指定した範囲で動画を切り抜く
+
+        Args:
+            video_path: 入力動画ファイルのパス
+            start_seconds: 切り抜き開始秒
+            end_seconds: 切り抜き終了秒
+            output_path: 出力動画ファイルのパス
+        """
+        video = VideoFileClip(video_path)
+        start_seconds = max(0.0, start_seconds)
+        end_seconds = min(end_seconds, video.duration)
+        if end_seconds <= start_seconds:
+            video.close()
+            raise ValueError("切り抜き範囲が不正です。")
+        trimmed = self._subclip(video, start_seconds, end_seconds)
+        trimmed.write_videofile(
+            output_path,
+            fps=video.fps,
+            codec="libx264",
+            audio_codec="aac",
+            logger=None,
+        )
+        trimmed.close()
+        video.close()
+        return start_seconds, end_seconds
+
     def _load_system_prompt(self) -> str:
         prompts_base_dir = Path(__file__).parent.parent / "prompts"
         prompt_file = prompts_base_dir / "trim_video" / "system_prompt.md"
