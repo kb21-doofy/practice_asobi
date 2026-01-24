@@ -57,10 +57,13 @@ def main():
     # サイドバー設定
     st.sidebar.title("設定")
     
+    if "translate_language_option" not in st.session_state:
+        st.session_state["translate_language_option"] = "ja"
     translate_language_option = st.sidebar.selectbox(
         "翻訳先言語を選択（翻訳しない場合は空欄）",
         options=["", "en", "ja", "ko"],
-        index=0,
+        index=2,
+        key="translate_language_option",
         format_func=lambda x: {
             "": "翻訳しない", "en": "英語", "ja": "日本語", "ko": "韓国語"
         }.get(x, x),
@@ -75,76 +78,8 @@ def main():
         help="重要箇所抽出に使用するLLMプロバイダーを選択します。"
     )
 
-    st.sidebar.markdown("### 字幕スタイル")
-    font_size = st.sidebar.number_input(
-        "フォントサイズ",
-        min_value=8,
-        max_value=120,
-        value=SubtitleConstants.SUBTITLE_DEFAULT_FONT_SIZE,
-        step=1,
-        help="字幕のフォントサイズを指定します。"
-    )
-    color_options = [
-        "white", "black", "yellow", "red", "blue", "green", "cyan", "magenta", "custom"
-    ]
-    default_font_color_index = (
-        color_options.index(SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR)
-        if SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR in color_options
-        else color_options.index("custom")
-    )
-    font_color_choice = st.sidebar.selectbox(
-        "フォント色",
-        options=color_options,
-        index=default_font_color_index,
-        help="CSSカラー名または16進数カラー（例: #ffffff）を指定できます。"
-    )
-    font_color_custom = ""
-    if font_color_choice == "custom":
-        font_color_custom = st.sidebar.text_input(
-            "フォント色（カスタム）",
-            value=SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR,
-            help="例: #ffffff, #ffcc00, white"
-        )
-    if font_color_choice == "custom":
-        font_color = font_color_custom.strip() or SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR
-    else:
-        font_color = font_color_choice
-
-    default_stroke_color_index = (
-        color_options.index(SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR)
-        if SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR in color_options
-        else color_options.index("custom")
-    )
-    stroke_color_choice = st.sidebar.selectbox(
-        "ストローク色",
-        options=color_options,
-        index=default_stroke_color_index,
-        help="縁取りの色を指定します。"
-    )
-    stroke_color_custom = ""
-    if stroke_color_choice == "custom":
-        stroke_color_custom = st.sidebar.text_input(
-            "ストローク色（カスタム）",
-            value=SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR,
-            help="例: #000000, black"
-        )
-    if stroke_color_choice == "custom":
-        stroke_color = stroke_color_custom.strip() or SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR
-    else:
-        stroke_color = stroke_color_choice
-
-    stroke_width = st.sidebar.number_input(
-        "ストローク幅",
-        min_value=0,
-        max_value=12,
-        value=SubtitleConstants.SUBTITLE_DEFAULT_STROKE_WIDTH,
-        step=1,
-        help="字幕の縁取りの太さを指定します。"
-    )
-    
-    # サイドバーにGitHubリンク
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("[GitHubリポジトリ](https://github.com/yourusername/whisper-transcription)")
+    manual_trim_container = st.sidebar.container()
+    subtitle_style_container = st.sidebar.container()
     
     # ファイルアップロード
     uploaded_file = st.file_uploader(
@@ -183,36 +118,98 @@ def main():
                 video_for_duration.close()
             except Exception as e:
                 st.warning(f"動画の長さ取得に失敗しました: {str(e)}")
-
-        # ファイル情報表示
-        file_size_mb = uploaded_file.size / (1024 * 1024)
-        st.info(f"ファイル: {uploaded_file.name} ({file_size_mb:.2f} MB)")
-        if duration_seconds is not None:
-            st.info(f"動画の長さ: {_format_time(duration_seconds)}")
         
         # 音声再生機能
         st.audio(uploaded_file, format=f"audio/{uploaded_file.name.split('.')[-1]}")
         
-        manual_trim = st.sidebar.checkbox(
-            "尺を手動で決める",
-            value=False,
-            help="ONの場合は指定した開始/終了時間で切り抜きます。OFFの場合はLLMで重要箇所を抽出します。",
-        )
-        manual_trim_range = None
-        if manual_trim:
-            if duration_seconds is None:
-                st.sidebar.warning("動画の長さが取得できないため、手動指定できません。")
+        with manual_trim_container:
+            manual_trim = st.checkbox(
+                "尺を手動で決める",
+                value=False,
+                help="ONの場合は指定した開始/終了時間で切り抜きます。OFFの場合はLLMで重要箇所を抽出します。",
+            )
+            manual_trim_range = None
+            if manual_trim:
+                if duration_seconds is None:
+                    st.warning("動画の長さが取得できないため、手動指定できません。")
+                else:
+                    manual_trim_range = st.slider(
+                        "切り抜き範囲（秒）",
+                        min_value=0.0,
+                        max_value=float(duration_seconds),
+                        value=(0.0, float(duration_seconds)),
+                        step=0.1,
+                    )
+                    st.caption(
+                        f"選択範囲: {_format_time(manual_trim_range[0])} - {_format_time(manual_trim_range[1])}"
+                    )
+
+        with subtitle_style_container.expander("字幕スタイル", expanded=False):
+            font_size = st.number_input(
+                "フォントサイズ",
+                min_value=8,
+                max_value=120,
+                value=SubtitleConstants.SUBTITLE_DEFAULT_FONT_SIZE,
+                step=1,
+                help="字幕のフォントサイズを指定します。"
+            )
+            color_options = [
+                "white", "black", "yellow", "red", "blue", "green", "cyan", "magenta", "custom"
+            ]
+            default_font_color_index = (
+                color_options.index(SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR)
+                if SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR in color_options
+                else color_options.index("custom")
+            )
+            font_color_choice = st.selectbox(
+                "フォント色",
+                options=color_options,
+                index=default_font_color_index,
+                help="CSSカラー名または16進数カラー（例: #ffffff）を指定できます。"
+            )
+            font_color_custom = ""
+            if font_color_choice == "custom":
+                font_color_custom = st.text_input(
+                    "フォント色（カスタム）",
+                    value=SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR,
+                    help="例: #ffffff, #ffcc00, white"
+                )
+            if font_color_choice == "custom":
+                font_color = font_color_custom.strip() or SubtitleConstants.SUBTITLE_DEFAULT_FONT_COLOR
             else:
-                manual_trim_range = st.sidebar.slider(
-                    "切り抜き範囲（秒）",
-                    min_value=0.0,
-                    max_value=float(duration_seconds),
-                    value=(0.0, float(duration_seconds)),
-                    step=0.1,
+                font_color = font_color_choice
+
+            default_stroke_color_index = (
+                color_options.index(SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR)
+                if SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR in color_options
+                else color_options.index("custom")
+            )
+            stroke_color_choice = st.selectbox(
+                "ストローク色",
+                options=color_options,
+                index=default_stroke_color_index,
+                help="縁取りの色を指定します。"
+            )
+            stroke_color_custom = ""
+            if stroke_color_choice == "custom":
+                stroke_color_custom = st.text_input(
+                    "ストローク色（カスタム）",
+                    value=SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR,
+                    help="例: #000000, black"
                 )
-                st.sidebar.caption(
-                    f"選択範囲: {_format_time(manual_trim_range[0])} - {_format_time(manual_trim_range[1])}"
-                )
+            if stroke_color_choice == "custom":
+                stroke_color = stroke_color_custom.strip() or SubtitleConstants.SUBTITLE_DEFAULT_STROKE_COLOR
+            else:
+                stroke_color = stroke_color_choice
+
+            stroke_width = st.number_input(
+                "ストローク幅",
+                min_value=0,
+                max_value=12,
+                value=SubtitleConstants.SUBTITLE_DEFAULT_STROKE_WIDTH,
+                step=1,
+                help="字幕の縁取りの太さを指定します。"
+            )
 
         # 文字起こし実行ボタン
         transcribe_button = st.button("動画処理開始", type="primary")
@@ -376,6 +373,10 @@ def main():
             3. 「動画処理開始」ボタンをクリック
             4. 結果を確認し、必要に応じてダウンロード
             """)
+
+    # サイドバーにGitHubリンク
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("[GitHubリポジトリ](https://github.com/yourusername/whisper-transcription)")
 
 if __name__ == "__main__":
     main()
