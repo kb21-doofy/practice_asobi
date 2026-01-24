@@ -53,6 +53,50 @@ class AddSubtitlesService:
         if not os.path.exists(japanese_font_path):
             japanese_font_path = "/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc"
         return japanese_font_path
+
+    @staticmethod
+    def _format_subtitle_text(text: str) -> str:
+        target = "、"
+        count = 0
+        for idx, char in enumerate(text):
+            if char == target:
+                count += 1
+                if count == 2:
+                    return f"{text[:idx + 1]}\n{text[idx + 1:]}"
+        return text
+
+    @staticmethod
+    def _normalize_subtitle_entries(
+        entries: List[tuple[float, float, str]],
+        video_duration: float,
+        offset_seconds: float = 0.0,
+    ) -> List[tuple[float, float, str]]:
+        if not entries:
+            return []
+        min_start = min(start for start, _, _ in entries)
+        max_end = max(end for _, end, _ in entries)
+        if max_end - min_start > video_duration + 0.1:
+            offset_seconds = min_start
+
+        normalized = []
+        for start, end, text in entries:
+            start = max(0.0, start - offset_seconds)
+            end = min(video_duration, end - offset_seconds)
+            if end <= start:
+                end = min(video_duration, start + 0.2)
+            if end <= start:
+                continue
+            normalized.append((start, end, text))
+
+        normalized.sort(key=lambda item: (item[0], item[1]))
+        for idx in range(len(normalized) - 1):
+            start, end, text = normalized[idx]
+            next_start = normalized[idx + 1][0]
+            if end > next_start:
+                end = max(start, next_start)
+                normalized[idx] = (start, end, text)
+
+        return [item for item in normalized if item[1] > item[0]]
     
     def add_subtitles_to_video(
         self,
@@ -79,17 +123,21 @@ class AddSubtitlesService:
         for item in timestamp_list:
             start_seconds = time_to_seconds(item["start"])
             end_seconds = time_to_seconds(item["end"])
-            text = item["text"]
+            text = self._format_subtitle_text(item["text"])
             subtitles.append(((start_seconds, end_seconds), text))
         
         font_path = self._get_font_path(language)
+        max_width = int(video.size[0] * 0.9)
         generator = lambda txt: TextClip(
             text=txt,
             font=font_path,
             font_size=self.font_size,
             color=self.font_color,
             stroke_color=self.stroke_color,
-            stroke_width=self.stroke_width
+            stroke_width=self.stroke_width,
+            method="caption",
+            text_align="center",
+            size=(max_width, None),
         )
         
         subtitle_clips = SubtitlesClip(
@@ -98,7 +146,7 @@ class AddSubtitlesService:
         )
         
         # with_positionで位置を指定（set_positionの代替）
-        subtitle_clips = subtitle_clips.with_position(('center', 'bottom'))
+        subtitle_clips = subtitle_clips.with_position(("center", "bottom"))
         
         # 動画と字幕を合成
         final_video = CompositeVideoClip(
@@ -147,7 +195,7 @@ class AddSubtitlesService:
         for item in segments:
             start_time = item.get("start_time")
             end_time = item.get("end_time")
-            text = item.get("text", "")
+            text = self._format_subtitle_text(item.get("text", ""))
             if not start_time or not end_time or not text:
                 continue
 
@@ -156,26 +204,26 @@ class AddSubtitlesService:
 
             if end_seconds <= 0:
                 continue
+            subtitles.append((start_seconds, end_seconds, text))
 
-            start_seconds = max(0.0, start_seconds)
-            end_seconds = min(video.duration, end_seconds)
-            if end_seconds <= start_seconds:
-                continue
-
-            subtitles.append(((start_seconds, end_seconds), text))
-
-        if not subtitles:
+        normalized = self._normalize_subtitle_entries(subtitles, video.duration)
+        if not normalized:
             video.close()
             raise ValueError("字幕用のセグメントが空です。")
+        subtitles = [((start, end), text) for start, end, text in normalized]
 
         font_path = self._get_font_path(language)
+        max_width = int(video.size[0] * 0.9)
         generator = lambda txt: TextClip(
             text=txt,
             font=font_path,
             font_size=self.font_size,
             color=self.font_color,
             stroke_color=self.stroke_color,
-            stroke_width=self.stroke_width
+            stroke_width=self.stroke_width,
+            method="caption",
+            text_align="center",
+            size=(max_width, None),
         )
 
         subtitle_clips = SubtitlesClip(
